@@ -15,6 +15,14 @@ workflow variant_caller {
 
 	// Main
 	main:
+		/* BEWARE https://github.com/HKU-BAL/Clair3/issues/123#issuecomment-1185498217
+		 * Clair3 does NOT filter SNPs based on frequency, SNP length, etc given
+		 * by the user.
+		 *
+		 * Rather, these settings filter _candidates_ that are fed to the deep
+		 * learning model. The final calls do not necessarily meet the settings
+		 * given by the user.
+		 */
 		variants = VARIANT_CALL_CLAIR3(asmbl.join(depth_asmbl),
 					       AFthres, 
 					       ref_genome,
