@@ -127,7 +127,7 @@ process VARIANT_CALL_CLAIR3 {
 
 		# Filter out INDELs ('--call_snp_only' is classed as EXPERIMENTAL in Clair3)
 		# bcftools view --include 'ABS(ILEN)<1' -Oz -o ${barcode}.vcf.gz clair_out/merge_output.vcf.gz  # should work but it doesnt
-		python3 $params.bin/filterSNPs.py clair_out/merge_output.vcf.gz
+		python3 $params.bin/filterSNPs.py clair_out/merge_output.vcf.gz $min_freq
 
 		# Ensure headers consistent with vcf.gz files
 		bcftools view -Oz -o ${barcode}.vcf.gz clair_out/merge_output_filtered.vcf.gz	
