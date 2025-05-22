@@ -1,6 +1,6 @@
 // IMPORT MODULES
 include { CONSENSUS_2_MSA; GET_COMMON_SNP; PREALIGN_GENOMES; GET_SAMPLES_NUMBER;
-	  DISTANCE_MATRIX; DISTANCE_MATRIX as DISTANCE_MATRIX_wo_CTRL;
+	  DISTANCE_MATRIX; DISTANCE_MATRIX as DISTANCE_MATRIX_w_CTRL;
 	  ALIGN_FROM_VCF; GENERATE_PHYLOGENY_GUBBINS; GENERATE_PHYLOGENY;
 	  CORRECT_RECOMBINATION } from '../modules/phylogeny.nf'
 include { PLOT_PHYLOGENY; PLOT_SNP_DISTANCES } from '../modules/plot_figures.nf'
@@ -57,7 +57,6 @@ workflow phylogeny {
 			// Alignment must wait for all reads to be pre-processed
 			barcodes = rehead_variants.preprocessed.map{ it -> it[1] }.collect()
 			n_barcodes = barcodes.size()
-			barcodes.view()
 
 			// Get variants common to all samples
 			common =  GET_COMMON_SNP(barcodes,
@@ -75,11 +74,16 @@ workflow phylogeny {
 					      "$params.output/aligments")
 
 			dist = DISTANCE_MATRIX(msa.alignment.collect(),
+					       "distance_matrix",
 					       "$params.output/phylogeny")
+
+			dist_w_controls = DISTANCE_MATRIX_w_CTRL(msa.alignment_w_controls.collect(),
+								 "distance_matrix_w_ctrl",
+					       		         "$params.output/phylogeny")
 							
 			// Phylogeny
-			phy = GENERATE_PHYLOGENY_GUBBINS(msa.alignment.collect(),
-							   "$params.output/phylogeny")
+//			phy = GENERATE_PHYLOGENY_GUBBINS(msa.alignment.collect(),
+//							   "$params.output/phylogeny")
 
 			// Maximum-Likelihood (ML) method with RaxML
 			//phy_ML = GENERATE_PHYLOGENY(msa.alignment.collect(),
@@ -91,5 +95,6 @@ workflow phylogeny {
 			
 			// SNP distance required for plotting, wait for completion
 			dist.snp.collect()
+			dist_w_controls.snp.collect()
 		}
 }

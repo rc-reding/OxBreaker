@@ -91,18 +91,32 @@ process CONSENSUS_2_MSA{
 
 	output:
 	path("msa.fa"), emit: alignment
+	path("msa_w_controls.fa"), emit: alignment_w_controls
 
 	script:
 	"""
-	echo $consensus_timed
+		if [ ! -f msa_w_controls.fa ]; then
+			cat $ref_genome | sed 's/>/>reference /' > msa_w_controls.fa
+		fi
+
+		# Avoids ERR if no sample eligible
 		if [ ! -f msa.fa ]; then
-			cat $ref_genome | sed 's/>/>reference /' > msa.fa
+			touch msa.fa
 		fi
 
 		for SEQ in \$(ls $consensus/*.fa); do
-			# If assembly is not fully masked...
-			if [[ \$(tail -n +2 \$SEQ | wc -c) != \$(tail -n +2 \$SEQ | grep "N" | wc -c) ]]; then
-				cat \$SEQ >> msa.fa
+			# If most of the assembly is not masked...
+			Ns=\$(tail -n +2 \$SEQ | grep "N" | wc -c)
+			GENOME_SIZE=\$(tail -n +2 \$SEQ | wc -c)
+			PROPORTION_MASKED=\$(echo "scale=2; \$Ns / \$GENOME_SIZE" | bc)
+
+			if [ \$(echo "\$PROPORTION_MASKED < .25" | bc) -eq 1 ]; then
+				cat \$SEQ >> msa_w_controls.fa
+				if [[ ! \$(basename \$SEQ) == *"01"* && ! \$(basename \$SEQ) == *"02"* &&
+		      		      ! \$(basename \$SEQ) == *"49"* && ! \$(basename \$SEQ) == *"50"* &&
+		      		      ! \$(basename \$SEQ) == *"65"* && ! \$(basename \$SEQ) == *"66"* ]]; then
+					cat \$SEQ >> msa.fa
+				fi
 			fi
 		done
 
@@ -110,7 +124,7 @@ process CONSENSUS_2_MSA{
 
 	stub:
 	"""
-		touch msa.fa
+		touch msa.fa msa_w_controls.fa
 	"""
 	
 }
@@ -225,9 +239,9 @@ process GENERATE_PHYLOGENY_GUBBINS {
 
 	script:
 	"""
-	run_gubbins.py --prefix gubbins --seed 101010 --model GTRGAMMA 	--recon-model GTRGAMMA \
+	run_gubbins.py --prefix gubbins --seed 101010 --model GTRGAMMA --recon-model GTRGAMMA \
 		--min-snps 3 --p-val 0.01 --extensive-search --min-window-size 100 \
-		--sh-test --threads $task.cpus --iterations 10 --outgroup reference msa.fa
+		--sh-test --threads $task.cpus --iterations 10 msa.fa
 
 	mask_gubbins_aln.py --aln gubbins.filtered_polymorphic_sites.fasta \
 		--gff gubbins.recombination_predictions.gff \
@@ -314,18 +328,19 @@ process DISTANCE_MATRIX {
 
 	input:
 	path(msa)
+	val(distance_matrix)
 	val(outdir)
 
 	output:
-	path("distance_matrix.tsv"), emit: snp
+	path("${distance_matrix}.tsv"), emit: snp
 
 	script:
 	"""
-	snp-dists $msa > distance_matrix.tsv
+	snp-dists -q $msa > ${distance_matrix}.tsv
 	"""
 
 	stub:
 	"""
-	touch distance_matrix.tsv
+	touch ${distance_matrix}.tsv
 	"""
 }
