@@ -22,7 +22,7 @@ workflow outbreaker {
  
 	// Main
 	main:
-
+		// Minimum mean read quality
 		if ( params.min_qual == null) {
 			// No filtering by default
 			// unless otherwise specified
@@ -31,20 +31,18 @@ workflow outbreaker {
 			min_qual = "$params.min_qual"
 		}
 
-		/* INTERESTING: positives seem to decline with 
-		 * higher min_freq up to ~50-60%. However,
-		 * higher min_freq requirement results
-		 * in a modest increase in number of SNP.
-		 * But it is not consistent---depends on sp.
-		 * More robust is a dip occurring at 90% freq.
-		 * Information is being _thrown_ at min_freq
-		 * above 50% or 90%? 
-		 */
-
+		// Minimum alternative allele frequency
 		if ( params.min_freq == null ) {
-			min_freq = "0.95"
+			min_freq = "0.9"
 		} else {
 			min_freq = "$params.min_freq"
+		}
+
+		// Minimum number of reads to call a variant
+		if ( params.min_read_number == null ) {
+			min_read_number = "2"  // Clair3 default is 2, so be it.
+		} else {
+			min_read_number = "$params.min_read_number"
 		}
 
 		// Set reference genome - use one sample only
@@ -86,7 +84,8 @@ workflow outbreaker {
 				       ref_genome,
 				       mapped.depth,
 				       mapped.depth_asmbl,
-				       min_freq)
+				       min_freq,
+				       min_read_number)
 		}
 		
 
