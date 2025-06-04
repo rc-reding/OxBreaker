@@ -1,4 +1,3 @@
-
 // IMPORT MODULES
 include { FIND_MLST as REFERENCE_MLST } from './modules/assembly_utils.nf'
 
@@ -17,14 +16,14 @@ workflow outbreaker {
 		reads = Channel.fromPath("$params.input/reads_merged/*.fastq.gz", checkIfExists: true).map {
 				it -> tuple( it.baseName.replace('.fastq',''), it )
 				}.toSortedList( a -> a[0] ).flatMap()
-		sample = Channel.fromPath("$params.input/reads_merged/*.fastq.gz").map {
+		sample = Channel.fromPath("$params.input/reads_merged/*.fastq.gz", checkIfExists: true).map {
 				it -> tuple( it.baseName.replace('.fastq',''), it )
 				}.first()
  
 	// Main
 	main:
 
-		if ( !params.min_qual ) {
+		if ( params.min_qual == null) {
 			// No filtering by default
 			// unless otherwise specified
 			min_qual = "0"
@@ -42,8 +41,8 @@ workflow outbreaker {
 		 * above 50% or 90%? 
 		 */
 
-		if ( !params.min_freq ) {
-			min_freq = "0.9"
+		if ( params.min_freq == null ) {
+			min_freq = "0.95"
 		} else {
 			min_freq = "$params.min_freq"
 		}
@@ -89,10 +88,10 @@ workflow outbreaker {
 				       mapped.depth_asmbl,
 				       min_freq)
 		}
-//		
-//
-//		phylogeny(variant_caller.out.consensus,
-//			  variant_caller.out.variants,
-//			  mapped.coverage,
-//			  ref_genome)
+		
+
+		phylogeny(variant_caller.out.consensus,
+			  variant_caller.out.variants,
+			  mapped.coverage,
+			  ref_genome)
 }
