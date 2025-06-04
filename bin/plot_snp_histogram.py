@@ -82,6 +82,15 @@ def plot_distance_matrix(snp_data: np.array, sample_id: tuple):
     plt.yticks(ticks=np.arange(len(sample_id)) + 0.5,
                labels=sample_id, rotation=0,
                fontsize=6)
+
+    # Annotation
+    for (x, y), val in np.ndenumerate(snp_data):
+        if snp_alpha[y, x] != 0:
+            ax.text(x+0.5, y+0.5, val, fontsize=3,
+                    rotation=45,
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    color='black')
     
     # Labels
     plt.xlabel('Sample ID', fontsize=14)
