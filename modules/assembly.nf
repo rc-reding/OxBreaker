@@ -18,8 +18,6 @@ process ASSEMBLE_ONT {
 	*/
 
 	script:
-	//MDL_NAME = 'r941_e81_sup_g514'
-	//MDL_NAME = 'r941_e81_sup_g514'
 	"""
 		genomeSize=\$(wc -c ${reads_merged} | cut -d " " -f 1)
 		minimum_genomeSize=5120000
@@ -89,6 +87,7 @@ process VARIANT_CALL_CLAIR3 {
 	input:
 	tuple val(barcode), path(asmbl), env(asmbl_depth)
 	val(min_freq)
+	val(min_readN)
 	path(ref_genome)
 	val(outdir)
 	
@@ -100,8 +99,6 @@ process VARIANT_CALL_CLAIR3 {
 		samtools index $asmbl
 		samtools faidx $ref_genome
 		
-		MIN_DEPTH=10   # Min to allow progress, trial number
-
 		if [ $params.chemistry == "R10" ]; then
 			MDL_NAME='r1041_e82_400bps_sup_v500'
 		elif [ $params.chemistry == "R9" ]; then
@@ -118,7 +115,7 @@ process VARIANT_CALL_CLAIR3 {
 			--platform="ont" \
 			--include_all_ctgs \
 			--no_phasing_for_fa \
-			--min_coverage=\$MIN_DEPTH \
+			--min_coverage=$min_readN \
 			--min_mq=57 \
 			--snp_min_af=$min_freq \
 			--call_snp_only \
@@ -127,10 +124,12 @@ process VARIANT_CALL_CLAIR3 {
 
 		# Filter out INDELs ('--call_snp_only' is classed as EXPERIMENTAL in Clair3)
 		# bcftools view --include 'ABS(ILEN)<1' -Oz -o ${barcode}.vcf.gz clair_out/merge_output.vcf.gz  # should work but it doesnt
-		python3 $params.bin/filterSNPs.py clair_out/merge_output.vcf.gz
-
+		python3 $params.bin/filterSNPs.py clair_out/merge_output.vcf.gz $min_freq
+		
 		# Ensure headers consistent with vcf.gz files
 		bcftools view -Oz -o ${barcode}.vcf.gz clair_out/merge_output_filtered.vcf.gz	
+
+
 	"""
 
 	stub:
@@ -198,7 +197,7 @@ process VARIANT_CALL_LONGSHOT {
 		samtools index $asmbl
 		samtools faidx $ref_genome
 
-		MIN_DEPTH=10   # Min to allow progress, trial number
+		MIN_DEPTH=10   # Bc Bernadette says so
 
 		# Run longshot
 		longshot --bam $asmbl \
