@@ -9,7 +9,7 @@ process CALCULATE_COVERAGE_DEPTH {
 	output:
 	tuple val(barcode), env(COV), emit: cov
 	tuple val(barcode), env(DEPTH), emit: depth
-	tuple val(barcode), path("${barcode}_depth.csv"), emit: csv
+	tuple val(barcode), path("${barcode}_depth.csv"), emit: summary
 	tuple val(barcode), path("${barcode}_depth.tsv"), emit: tsv
 
 	script:
