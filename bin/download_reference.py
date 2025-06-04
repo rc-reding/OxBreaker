@@ -66,6 +66,7 @@ def get_fasta(species: str) -> list:
                 # Retrieve metadata for dataset
                 info = _get_assembly_info(ASMBL_ID)
                 contigN = _get_contig_number(info['Meta'])
+                print(candidate, info, contigN)
                 if contigN == 1:
                     remote_file = _get_assembly_url(info)
                     success = True
@@ -126,6 +127,7 @@ def parse_kraken2_report(REPORT: str) -> str:
     species = candidate_species[NAME_ID].strip(' ')
     print("Species:", species)
     candidate_construct = list()
+    prev_candidate = None
     for entry in open(REPORT, 'r'):
         entry = entry.lstrip(' ').rstrip('\n')  # Sanitize output
         entry = entry.split('\t')
@@ -136,9 +138,13 @@ def parse_kraken2_report(REPORT: str) -> str:
         elif entry[TYPE_ID] == str('S1') and species in entry[NAME_ID] and\
             float(entry[PROP_ID]) > 0:
             candidate_construct.append(entry)
-        elif entry[TYPE_ID] == str('S2') and species in entry[NAME_ID] and\
-            float(entry[PROP_ID]) > 0:
-            candidate_construct.append(entry)
+        elif entry[TYPE_ID] == str('S2') and species in entry[NAME_ID]:
+            if float(entry[PROP_ID]) > 0.5 * float(prev_candidate[PROP_ID]):
+                candidate_construct.insert(len(candidate_construct)-1, entry)
+            elif float(entry[PROP_ID]) > 0:
+                candidate_construct.append(entry)
+
+        prev_candidate = entry
 
     return candidate_species[NAME_ID].strip(' '),\
         [ c[NAME_ID].strip(' ') for c in candidate_construct]
