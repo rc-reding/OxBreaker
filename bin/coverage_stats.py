@@ -14,6 +14,7 @@ def coverageStats(df):
     bases=df.groupby(['chrom'])['depth'].sum()
     chromLens=df.groupby(['chrom'])['position'].count()
     avDepth=bases/cov1['depth']
+    stdDepth=df[df.depth >= 1].groupby(['chrom'])['depth'].std()
 
     cov1.reset_index(inplace=True)
     cov10.reset_index(inplace=True)
@@ -23,9 +24,12 @@ def coverageStats(df):
     df2['covBreadth1x']=df2['depth cov1']/df2['length']
     df2['covBreadth10x']=df2['depth cov10']/df2['length']
     df2['avDepth']=df2.chrom.map(avDepth)
+    df2['stdDepth']=df2.chrom.map(stdDepth)
     df2['Sample name']=sys.argv[2]
     df2['bases']=df2.chrom.map(bases)
-    df2=df2[['Sample name','chrom','length','bases','avDepth','position cov1','position cov10','covBreadth1x','covBreadth10x']]
+    df2=df2[['Sample name','chrom','length','bases','avDepth',
+             'stdDepth','position cov1','position cov10',
+             'covBreadth1x','covBreadth10x']]
     df2.to_csv('coverage_stats.csv',index=False)
     print(df2)
     
