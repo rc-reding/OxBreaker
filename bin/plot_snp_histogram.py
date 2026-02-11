@@ -54,17 +54,17 @@ def plot_snp_histogram(matrix_data: np.array):
 def plot_distance_matrix(snp_data: np.array, sample_id: tuple):
     """
     """
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=(5, 5.5))
 
     # Since matrix is symmetric, extract triangular
     # lower section of the matrix (including diag.)
-    idx = np.triu_indices(len(snp_data), 1)
+    idx = np.triu_indices(len(snp_data), 0)
     snp_alpha = np.ones_like(snp_data, dtype='float')
     snp_alpha[idx] = 0.0
 
     # Plot
-    plt.pcolor(snp_data, alpha=snp_alpha, edgecolors='black',
-               linewidth=0.1, cmap='OrRd')
+    p = plt.pcolor(snp_data, alpha=snp_alpha, edgecolors='black',
+                   linewidth=0.1, cmap='OrRd')
     ax = plt.gca()  # Get axis
     
     # Remove frame
@@ -74,7 +74,7 @@ def plot_distance_matrix(snp_data: np.array, sample_id: tuple):
     ax.spines['left'].set_visible(False)
     
     # Major axis (for labels)
-    ax.tick_params(which='major', labeltop=True,
+    ax.tick_params(which='major', labeltop=True, length=0,
                    top=True, bottom=False, labelbottom=False)
     plt.xticks(ticks=np.arange(len(sample_id)) + 0.5,
                labels=sample_id, rotation=45,
@@ -86,12 +86,30 @@ def plot_distance_matrix(snp_data: np.array, sample_id: tuple):
     # Annotation
     for (x, y), val in np.ndenumerate(snp_data):
         if snp_alpha[y, x] != 0:
-            ax.text(x+0.5, y+0.5, val, fontsize=3,
-                    rotation=45,
-                    horizontalalignment='center',
-                    verticalalignment='center',
-                    color='black')
-    
+            if val <= 40:
+                ax.text(x+0.5, y+0.5, val, fontsize=4,
+                        rotation=0,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        color='red', weight='bold')
+            elif 100 >= val > 40:
+                ax.text(x+0.5, y+0.5, val, fontsize=4,
+                        rotation=0,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        color='black', weight='bold')
+            else:
+                new_val = str('$>$100')
+                ax.text(x+0.5, y+0.5, new_val, fontsize=3,
+                        rotation=45,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        color='black')
+
+    cb = fig.colorbar(p, ax=ax, extend='max', label='Number of Variants',
+                      orientation='horizontal', aspect=50, shrink=0.75, pad=-0.09)
+    cb.ax.tick_params(axis='both', direction='out')
+
     # Labels
     plt.xlabel('Sample ID', fontsize=14)
     plt.ylabel('Sample ID', fontsize=14)
@@ -108,10 +126,13 @@ def main(FNAME: str):
     """
     # Load data
     mx_data, snp_data, sample_id = load_matrix(FNAME)
+    print("Matrix loaded.")
 
     # Plot
     plot_snp_histogram(mx_data)
+    print("Histogram done.")
     plot_distance_matrix(snp_data, sample_id)
+    print("Matrix done.")
     plt.close('all')
 
 if __name__ == '__main__':

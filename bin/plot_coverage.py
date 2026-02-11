@@ -48,6 +48,7 @@ def load_data(PATH: str) -> list:
 
     DEPTH_FILE_LIST = [f for f in os.listdir(PATH) if f.find('.csv') > -1]
     for FNAME in DEPTH_FILE_LIST:
+        print(PATH + FNAME)
         raw_data = csv.reader(open(PATH + FNAME, 'r'))
         next(raw_data)  # Skip header
         raw_data = next(raw_data)  # Hack since 'raw_data' is an Iterator

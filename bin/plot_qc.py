@@ -71,9 +71,9 @@ def plot_qc(LABELS: list, QUAL: str, Q20: list, Q30: list):
     ACCURACY = 100 * (1 - 10**-(QUAL/10))  # ERR = 10^-(Q/10)
     fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(12, 5))
     ax.bar(LABELS, Q20, width=BAR_WIDTH,
-           color='k', label='$>99/%$ accuracy')
+           color='k', label='>99% accuracy')
     ax.bar(LABELS, Q30, width=BAR_WIDTH,
-           color='grey', label='$>99.9/%$ accuracy')
+           color='grey', label='>99.9% accuracy')
     ax2 = ax.twinx()
     ax2.plot(LABELS, ACCURACY, linestyle='None', marker='o', color='r')
 
@@ -94,7 +94,7 @@ def plot_qc(LABELS: list, QUAL: str, Q20: list, Q30: list):
     ax2.set_xlim([0-BAR_WIDTH/1.9, len(Q20)-BAR_WIDTH/2])
     ax2.set_ylim([90, 100])
 
-    ax.set_ylabel('$/%$ of reads', fontsize=24)
+    ax.set_ylabel('% of reads', fontsize=24)
     ax2.set_ylabel('Average accuracy', fontsize=24)
     ax.set_xlabel('Sample No.', fontsize=24)
     fig.tight_layout()

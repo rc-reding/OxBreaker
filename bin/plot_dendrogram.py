@@ -29,8 +29,8 @@ def render_tree(tree: Tree, MLST_PATH: str, cladogram: bool = False, DEBUG: bool
     # Re-name leafs
     for leaf in tree.iter_leaves():
         seq_type = _get_sequence_type(MLST_PATH, leaf.name)
-        leaf.name = leaf.name.split('.')[0].replace('barcode', '').capitalize() + \
-            str(' (') + seq_type + str(')')
+        leaf.name = leaf.name.split('.')[0].replace('barcode', '').capitalize() #+ \
+            #str(' (') + seq_type + str(')')
     # Re-format node style
     for node in tree.traverse():
         node.img_style['size'] = 0  # Hide node circles
@@ -49,6 +49,7 @@ def render_tree(tree: Tree, MLST_PATH: str, cladogram: bool = False, DEBUG: bool
     ts.margin_top = 10
     ts.margin_left = 10
     ts.margin_right = 10
+    ts.show_branch_support = False
 
     if DEBUG is False:
         # Default to circular, unrooted trees
@@ -60,8 +61,7 @@ def render_tree(tree: Tree, MLST_PATH: str, cladogram: bool = False, DEBUG: bool
         ts.force_topology = True
         ts.show_branch_support = True
         ns.size = 1
-    else:
-        ts.show_branch_support = False
+#    else:
         #ts.scale_length = 100
 
     # Node style
@@ -128,6 +128,7 @@ def load_phylogeny(PATH: str, FNAME: str) -> Tree:
     # fix_notation(PATH + FNAME, NDIGITS=4)
 
     # Load tree
+    print("FILE:", PATH+FNAME)
     tree = Tree(PATH + FNAME, quoted_node_names=True, format=1)
     DEBUG = False
     if str('debug') in PATH.lower():
@@ -192,10 +193,17 @@ PATH = sys.argv[1]
 DEST_PATH = sys.argv[2]
 MLST_PATH = sys.argv[3]
 
+# Sanitize Paths
+if PATH[-1] != str('/'):
+    PATH += str('/')
+
+if MLST_PATH[-1] != str('/'):
+    MLST_PATH += str('/')
+
 phylogeny, tree_order, debug_flag = load_phylogeny(PATH, 'corrected_tree.nwk')
 Dm, Dm_labels = load_distance_matrix(PATH, tree_order, ALL_V_ALL=False)
 
-tree, ts = render_tree(phylogeny, MLST_PATH, DEBUG=debug_flag)
+tree, ts = render_tree(phylogeny, MLST_PATH, DEBUG=True)
 tree.render(DEST_PATH + 'phylogeny.pdf', tree_style=ts)
 
 ## phylogeny, _ = load_phylogeny(PATH, 'sh_tree.nwk')  # Reload to purge previous configuration

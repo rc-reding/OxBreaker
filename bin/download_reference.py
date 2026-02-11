@@ -2,6 +2,7 @@
 
 import os
 import sys
+import gzip as gz
 import urllib
 from Bio import Entrez
 import xml.etree.ElementTree as et
@@ -46,6 +47,24 @@ def _get_contig_number(metadata_xml: str) -> int:
         if entry.get('category') == str('contig_count'):
             break
     return int(entry.text)
+
+
+def get_genbank(fasta: str) -> str:
+    """
+        Given a fasta file with a reference sequence,
+        extract access code and retrieve full genbank file.
+    """
+    # Get access code from FASTA header
+    with gz.open(fasta, 'r') as FASTA_REF:
+        ACCESS_CODE = FASTA_REF.readline().decode().split(' ')[0][1:]
+    # Retrieve file 
+    file = Entrez.efetch(db='nucleotide', rettype='gbwithparts',
+                         retmode='text', id=ACCESS_CODE,
+                         email=USR_EMAIL)
+    genbank_file = open('reference.gb', 'w')
+    genbank_file.write(file.read())
+    genbank_file.close()
+    return str('reference.gb')
 
 
 def get_fasta(species: str) -> list:
@@ -95,6 +114,7 @@ def get_fasta(species: str) -> list:
     # Download remote file
     urllib.request.urlretrieve(remote_file, "reference.fna.gz")
     if os.path.exists("reference.fna.gz"):
+        get_genbank("reference.fna.gz")
         return True, remote_file
     else:
         return False, remote_file
