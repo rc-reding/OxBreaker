@@ -47,21 +47,22 @@ process PLOT_SNP_DISTANCES {
 }
 
 
-process PLOT_SNP_DEPTH_DIST {
+process PLOT_SNP_DEPTH_DISTR_CLAIR3 {
 	label "phylogeny_gubbins"
 	publishDir "$outdir", mode: 'copy'
 
 	input:
 	tuple val(barcode), path(vcf_file)
+	val(depth_status)  // Used only to control execution
 	path(depth_dir)
 	val(outdir)
 
 	output:
-	path("${barcode}_snp_dist.pdf"), emit: depth_dist
+	path("${barcode}_snp_dist.pdf"), emit: depth_distr
 
 	script:
 	"""
-	python3 $params.bin/plot_snp_depth_dist.py $vcf_file $depth_dir/${barcode}_depth.csv
+	python3 $params.bin/plot_snp_depth_dist_clair3.py $vcf_file $depth_dir/${barcode}_depth.csv
 	"""
 
 	stub:
@@ -71,9 +72,81 @@ process PLOT_SNP_DEPTH_DIST {
 }
 
 
+process PLOT_SNP_DEPTH_DISTR_BCFTOOLS {
+	label "phylogeny_gubbins"
+	publishDir "$outdir", mode: 'copy'
+
+	input:
+	tuple val(barcode), path(vcf_file)
+	val(depth_status)  // Used only to control execution
+	path(depth_dir)
+	val(outdir)
+
+	output:
+	path("${barcode}_snp_dist.pdf"), emit: depth_distr
+
+	script:
+	"""
+	python3 $params.bin/plot_snp_depth_dist_bcf.py $vcf_file $depth_dir/${barcode}_depth.csv
+	"""
+
+	stub:
+	"""
+	touch ${barcode}_snp_dist.pdf
+	"""
+}
+
+
+process PLOT_DEPTH_DISTR {
+	label "phylogeny_gubbins"
+	publishDir "$outdir", mode: 'copy'
+
+	input:
+	tuple val(barcode), path(depth_file)
+	val(outdir)
+
+	output:
+	path("${barcode}_depth_hist.pdf"), emit: depth_distr
+
+	script:
+	"""
+	python3 $params.bin/plot_depth_hist.py $depth_file
+	"""
+
+	stub:
+	"""
+	touch ${barcode}_depth_hist.pdf
+	"""
+}
+
+
+process PLOT_SNP_QUAL_DISTR {
+	label "phylogeny_gubbins"
+	publishDir "$outdir", mode: 'copy'
+
+	input:
+	tuple val(barcode), path(vcf_file)
+	path(qc_report)  // Only used to control execution
+	path(qc_dir)
+	val(outdir)
+
+	output:
+	path("${barcode}_snp_qual.pdf"), emit: qual_distr
+
+	script:
+	"""
+	python3 $params.bin/plot_snp_qscore_dist.py $vcf_file $qc_dir/${barcode}_nanostats.txt
+	"""
+
+	stub:
+	"""
+	touch ${barcode}_snp_qual.pdf
+	"""
+}
+
 
 process PLOT_COVERAGE {
-	label "phylogeny"
+	label "phylogeny_gubbins"
 	publishDir "$outdir", mode: 'copy'
 
 	input:
@@ -96,8 +169,9 @@ process PLOT_COVERAGE {
 	"""
 }
 
+
 process PLOT_QC {
-	label "phylogeny"
+	label "phylogeny_gubbins"
 	publishDir "$outdir", mode: 'copy'
 
 	input:

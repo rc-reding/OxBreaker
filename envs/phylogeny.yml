@@ -5,3 +5,4 @@ dependencies:
   - raxml
   - clonalframeml
   - snp-dists
+  - numpy

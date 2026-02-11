@@ -1,7 +1,7 @@
 name: quality_control
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
   - r
 dependencies:

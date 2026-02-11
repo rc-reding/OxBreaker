@@ -3,38 +3,39 @@ process GENERATE_CONSENSUS {
 	publishDir "$outdir", mode: 'copy'
 
 	input:
-	tuple val(barcode), path(barcode_variant), path(barcode_depth), env(asmbl_depth)
-	path(assembly)
+	tuple val(barcode), \
+	      path(barcode_variant), \
+	      path(assembly), \
+	      path(barcode_depth), \
+	      env(asmbl_depth)
 	path(ref_genome)
+	path(bed_file)
+	val(min_depth)
 	val(outdir)
 
 	output:
 	tuple val(barcode), path("${barcode}.fa"), emit: fa
 
 	script:
-	DEPTH_THRESHOLD=0.5
 	"""
 	FNAME=\$(echo $barcode | cut -d'.' -f1)
-	MIN_DEPTH=\$(bc -s <<< "\$asmbl_depth * $DEPTH_THRESHOLD")
-	MIN_DEPTH=10
 
-	# Generate mask based on depth	
-	awk -v MIN_DEPTH=\$MIN_DEPTH '{if (\$3 < MIN_DEPTH) print \$1"\t"\$2}' $barcode_depth > mask.txt
+	awk -v MIN_DEPTH=$min_depth '{if (\$3 < $min_depth) print \$1"\t"\$2}' $barcode_depth > low_coverage.tsv
 	
 	# Index vcf
-	tabix -p vcf $barcode_variant
-	# Normalise indels/snps
-	#bcftools norm --fasta-ref $ref_genome $barcode_variant -Oz -o variants.norm.vcf.gz
-	# Index vcf
-	#tabix -p vcf variants.norm.vcf.gz
+	cp $barcode_variant tmp.vcf.gz
+	gunzip tmp.vcf.gz
+	bgzip -o ${barcode}.vcf.gz tmp.vcf
+	tabix -p vcf ${barcode}.vcf.gz
 
-	# Generate fasta file
-	bcftools consensus --mask mask.txt \
-					   --mark-del - \
-					   --mark-snv lc \
-					   --fasta-ref $ref_genome \
-					   --output ${barcode}.fa \
-					   $barcode_variant
+	# Gsample - file
+	bcftools consensus --samples - \
+			   --mask low_coverage.tsv \
+			   --mark-del - \
+			   --mark-snv lc \
+			   --fasta-ref $ref_genome \
+			   --output ${barcode}.fa \
+			   ${barcode}.vcf.gz
 
 	# Change sample name in fasta file
 	sed -i "s/>/>\$FNAME /" "${barcode}.fa"
@@ -58,6 +59,7 @@ process CONSENSUS_2_MSA{
 
 	output:
 	path("msa.fa"), emit: alignment
+	path("msa_stats.txt"), emit: alignment_stats
 	path("msa_w_controls.fa"), emit: alignment_w_controls
 
 	script:
@@ -69,21 +71,24 @@ process CONSENSUS_2_MSA{
 		# Avoids ERR if no sample eligible
 		if [ ! -f msa.fa ]; then
 			touch msa.fa
+			echo "Sample Name" \\\t "Proportion of genome masked" > msa_stats.txt
 		fi
 
 		for SEQ in \$(ls $consensus/*.fa); do
 			# If most of the assembly is not masked...
 			Ns=\$(tail -n +2 \$SEQ | grep "N" | wc -c)
-			GENOME_SIZE=\$(tail -n +2 \$SEQ | wc -c)
-			PROPORTION_MASKED=\$(echo "scale=2; \$Ns / \$GENOME_SIZE" | bc)
+			ns=\$(tail -n +2 \$SEQ | grep "n" | wc -c)
+			gaps=\$(tail -n +2 \$SEQ | grep "-" | wc -c)
 
-			if [ \$(echo "\$PROPORTION_MASKED < .25" | bc) -eq 1 ]; then
+			GENOME_SIZE=\$(tail -n +2 \$SEQ | wc -c)
+			PROPORTION_MASKED=\$(echo "scale=2; (\$Ns + \$ns + \$gaps) / \$GENOME_SIZE" | bc)
+
+			echo \$(basename \$SEQ) \\\t \$PROPORTION_MASKED >> msa_stats.txt 
+
+
+			if [ \$(echo "\$PROPORTION_MASKED <= $params.masking_tolerance" | bc) -eq 1 ]; then
 				cat \$SEQ >> msa_w_controls.fa
-				if [[ ! \$(basename \$SEQ) == *"01"* && ! \$(basename \$SEQ) == *"02"* &&
-		      		      ! \$(basename \$SEQ) == *"49"* && ! \$(basename \$SEQ) == *"50"* &&
-		      		      ! \$(basename \$SEQ) == *"65"* && ! \$(basename \$SEQ) == *"66"* ]]; then
-					cat \$SEQ >> msa.fa
-				fi
+				cat \$SEQ >> msa.fa
 			fi
 		done
 
@@ -91,41 +96,7 @@ process CONSENSUS_2_MSA{
 
 	stub:
 	"""
-		touch msa.fa msa_w_controls.fa
-	"""
-	
-}
-
-
-process GET_COMMON_SNP{
-	label "variant_calling"
-	publishDir "$outdir/", mode: 'copy'
-
-	input:
-	val(variants_timed)  // no touching, helps control timing
-	path(path_in)
-	val(n_barcodes)
-	val(outdir)
-
-	output:
-	path("common_snps.vcf.gz"), emit: variants
-
-	script:
-	"""
-	VARIANTS=\$(find $path_in/ -name "*.gz" -size +0b)
-	echo \$VARIANTS
-
-	# Find intersect of all SNPs present in all barcodes
-	vcf-isec --apply-filters --force --nfiles =$n_barcodes \$VARIANTS > common_snps.vcf
-	bgzip common_snps.vcf
-
-	# Index
-	tabix -p vcf common_snps.vcf.gz
-	"""
-
-	stub:
-	"""
-	touch common_snps.vcf.gz
+		touch msa.fa msa_w_controls.fa msa_stats.txt
 	"""
 	
 }
@@ -150,9 +121,11 @@ process PREALIGN_GENOMES {
 	"""
 	if [[ \$READ_BREADTH > $MIN_BREADTH || \$READ_BREADTH == $MIN_BREADTH ]]; then
 		if [[ `stat -c '%s' $path_var/${barcode}.vcf.gz` -gt 0 ]]; then
-			echo ${barcode}.vcf.gz > tmp.txt
-			bcftools reheader --samples tmp.txt $path_var/${barcode}.vcf.gz > ${barcode}.vcf.gz
-			bcftools index ${barcode}.vcf.gz
+			cp vcf/${barcode}.vcf.gz ${barcode}.vcf.gz
+
+			gunzip ${barcode}.vcf.gz
+			bgzip ${barcode}.vcf
+			tabix -p vcf --csi ${barcode}.vcf.gz
 		else
 			touch ${barcode}.vcf.gz
 			touch ${barcode}.vcf.gz.csi
@@ -193,7 +166,7 @@ process GET_SAMPLES_NUMBER {
 
 process GENERATE_PHYLOGENY {
 	label "phylogeny_gubbins"
-	cpus=16
+	cpus 8
 	publishDir "$outdir", mode: 'copy'
 
 	input:
@@ -206,7 +179,7 @@ process GENERATE_PHYLOGENY {
 
 	script:
 	"""
-	run_gubbins.py --prefix gubbins --seed 101010 --model GTRGAMMA --recon-model GTRGAMMA \
+	run_gubbins.py --prefix gubbins --seed $params.seed --model GTRGAMMA --recon-model GTRGAMMA \
 		--min-snps 3 --p-val 0.01 --extensive-search --min-window-size 100 \
 		--sh-test --threads $task.cpus --iterations 10 msa.fa
 
@@ -228,7 +201,7 @@ process GENERATE_PHYLOGENY {
 
 process GENERATE_PHYLOGENY_RAxML {
 	label "phylogeny"
-	cpus=16
+	cpus 8
 	publishDir "$outdir", mode: 'copy'
 
 	input:

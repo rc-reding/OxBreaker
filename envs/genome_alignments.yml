@@ -5,6 +5,7 @@ channels:
  - defaults
 dependencies:
  - python
+ - tabix
  - bedtools
  - bioconda::bcftools
  - biopython

@@ -5,4 +5,5 @@ channels:
   - defaults
 dependencies:
   - mlst
+  - perl-list-moreutils
   - pymlst

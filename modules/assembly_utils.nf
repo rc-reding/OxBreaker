@@ -4,6 +4,7 @@ process CALCULATE_COVERAGE_DEPTH {
 
 	input:
 	tuple val(barcode), path("${barcode}.mapped.bam")
+	val(min_mq)
 	val(outdir)
 
 	output:
@@ -14,10 +15,9 @@ process CALCULATE_COVERAGE_DEPTH {
 
 	script:
 	"""
-	samtools depth -a -Q 50 ${barcode}.mapped.bam > ${barcode}_depth.tsv
+	samtools depth -a --min-MQ $min_mq ${barcode}.mapped.bam > ${barcode}_depth.tsv
 	python3 $params.bin/coverage_stats.py ${barcode}_depth.tsv ${barcode}
-	#COV=\$(tail -q -n1 coverage_stats.csv | cut -d ',' -f 8)
-	COV=\$(tail -q -n1 coverage_stats.csv | cut -d ',' -f 9)
+	COV=\$(tail -q -n1 coverage_stats.csv | cut -d ',' -f 10)
 	DEPTH=\$(tail -q -n1 coverage_stats.csv | cut -d ',' -f 5)
 
 	# Round to 0 barcodes with COV << 1 to avoid
@@ -36,31 +36,31 @@ process CALCULATE_COVERAGE_DEPTH {
 	touch ${barcode}_depth.csv
 	COV=0
 	DEPTH=0
+	MIN_READ_N=0
 	"""
 }
 
 
-process QC_ASMBL {
-	label "quality_control"
+process RETRIEVE_CONTEXT {
+	label "gen_consensus"
 	publishDir "$outdir", mode: 'copy'
-	cpus = 1
 
 	input:
-	tuple val(barcode), path(assembly)
+	tuple val(barcode), path(variants), path(asmbl), path(reference)
+	path(genbank)
 	val(outdir)
 
 	output:
-	path("${barcode}_quastReport.tsv")
+	path("${barcode}_variants_context.tsv")
 
 	script:
 	"""
-	quast -t $task.cpus -o quast_out $assembly
-	cp quast_out/report.tsv ${barcode}_quastReport.tsv
+	python3 "$params.bin/snp_context_bcf.py" $variants $reference $genbank
 	"""
 	
 	stub:
 	"""
-	touch ${barcode}_quastReport.tsv
+	touch ${barcode}_variants_context.tsv
 	"""
 }
 
@@ -68,7 +68,7 @@ process QC_ASMBL {
 process QC_ONT {
 	label "quality_control"
 	publishDir "$outdir", mode: 'copy'
-	cpus = 6
+	cpus 6
 
 	input:
 	tuple val(barcode), path(raw_reads)
@@ -76,22 +76,18 @@ process QC_ONT {
 
 	output:
 	path("${barcode}_nanostats.txt"), emit: qc
-	path("figures/${barcode}_QC_per_read.pdf"), emit: fig
 
 	script:
 	"""
 	NanoPlot -t $task.cpus --N50 --fastq $raw_reads
 	cp NanoStats.txt ${barcode}_nanostats.txt
 
-	mkdir figures
-	$params.bin/plot_qc_per_read.py $raw_reads
-	mv ${barcode}_QC_per_read.pdf figures/
 	"""
 	
 	stub:
 	"""
 	mkdir figures
-	touch ${barcode}_nanostats.txt figures/${barcode}_QC_per_read.pdf
+	touch ${barcode}_nanostats.txt 
 	"""
 }
 
@@ -99,7 +95,7 @@ process QC_ONT {
 process FILTER_READS {
 	label "filter_reads"
 	publishDir "$outdir", overwrite: true, mode: 'copy'
-	cpus=6
+	cpus 6
 
 	input:
 	tuple val(barcode), path(raw_reads)
@@ -110,8 +106,6 @@ process FILTER_READS {
 	tuple val(barcode), path("${barcode}_filtered.fastq.gz"), emit: reads
 
 	script:
-	MIN_QUALITY=15  // A filter of 20+ yields 0 reads in some cases
-	MIN_LENGTH=2000
 	"""
 	chopper --quality $Qthres --threads $task.cpus -i $raw_reads | gzip > ${barcode}_filtered.fastq.gz
 	"""
@@ -119,6 +113,29 @@ process FILTER_READS {
 	stub:
 	"""
 	touch ${barcode}_filtered.fastq.gz
+	"""
+}
+
+
+process REFERENCE_STATS {
+	label "gen_consensus"
+	publishDir "$outdir", mode: 'copy'
+
+	input:
+	path(gb_assembly)
+	val(outdir)
+
+	output:
+	tuple val("reference"), path("reference.stats"), emit: stats
+
+	script:
+	"""
+	python3 "$params.bin/get_intergenic_space.py" $gb_assembly
+	"""
+
+	stub:
+	"""
+	touch reference.stats
 	"""
 }
 
@@ -207,7 +224,7 @@ process FIND_wgMLST {
 }
 
 
-process GENERATE_BED {
+process BED_FROM_BLAST {
 	label "phylogeny_gubbins"
 	publishDir "$outdir", mode: 'copy'
 	
@@ -217,14 +234,16 @@ process GENERATE_BED {
 
 	output:
 	path("reference.bed"), emit: file
+	path("repetitions.stats"), emit: stats
 
 	script:
 	"""
-	python3 "$params.bin/makeBED.py" $reference
+	python3 $params.bin/remove_repeated_regions.py $reference
+	mv reference_db.stats repetitions.stats
 	"""
 
 	stub:
 	"""
-	touch reference.bed
+	touch reference.bed repetitions.stats
 	"""
 }

@@ -4,6 +4,10 @@ channels:
  - conda-forge
  - bioconda
 dependencies:
- - bioconda::bcftools
+ - conda-forge::gsl
+ - bioconda::bcftools>=1.19
+ - samtools
  - biopython
  - python
+ - tabix
+ - gsl

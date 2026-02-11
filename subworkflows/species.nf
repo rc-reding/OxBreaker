@@ -17,4 +17,5 @@ workflow find_reference {
 
 	emit:
 		genome = reference.genome
+		genbank = reference.genbank
 }

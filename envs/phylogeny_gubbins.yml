@@ -8,6 +8,7 @@ dependencies:
   - ete3
   - qt
   - pyqt
+  - bioconda::blast
   - matplotlib
   - numpy
   - pyparsing

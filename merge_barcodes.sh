@@ -1,12 +1,8 @@
-#!/usr/bin/sh
 
-# Command to run. $1 allows the addition of -stub-run (needs to be there)
-#DIR="/home/carlos/volume1/data/outbreaks/JRH/mrsa/data"
-DIR="/home/carlos/projects/outbreaks/JRH/Qscore_validation"
-#for DIR in /home/carlos/volume1/data/outbreaks/C_diff/data/jrh/run*; do
-			echo "Processing $DIR"
-			nextflow run main.nf $1 \
-		  -entry preprocess_reads \
-		  --input $DIR/reads/ \
-		  --output $DIR/reads_merged
-#done
+DIR="/mnt/baradur/carlos/outbreaks/Dorado_v1.0.2/mrsa_R10"
+echo "Processing ${DIR}..."
+	echo "Processing $DIR"
+	nextflow run preprocess.nf $1 \
+		-entry merge_barcodes \
+		--input $DIR/reads/ \
+		--output $DIR/reads_merged

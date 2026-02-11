@@ -1,6 +1,7 @@
 name: variant_calling
 channels:
   - bioconda
+  - conda-forge
 dependencies:
   - clair3
   - python==3.9
