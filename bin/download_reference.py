@@ -8,8 +8,7 @@ from Bio import Entrez
 import xml.etree.ElementTree as et
 
 
-USR_EMAIL = str('carlos.reding@ndm.ox.ac.uk')
-
+USR_EMAIL = str('oxbreaker@ndm.ox.ac.uk')
 
 
 def _get_assembly_info(ASMBL_ID: str) -> dict:
@@ -32,7 +31,7 @@ def _get_assembly_url(asmbl_info: dict) -> str:
         remote_dir = asmbl_info['FtpPath_RefSeq']
     else:
         remote_dir = asmbl_info['FtpPath_GenBank']
-    remote_filename = os.path.basename(remote_dir) +  str('_genomic.fna.gz')
+    remote_filename = os.path.basename(remote_dir) + str('_genomic.fna.gz')
     return os.path.join(remote_dir, remote_filename)
 
 
@@ -49,15 +48,34 @@ def _get_contig_number(metadata_xml: str) -> int:
     return int(entry.text)
 
 
-def get_genbank(fasta: str) -> str:
+def _get_chr_number(report_url: str) -> int:
+    """
+        Find how many contigs there are for the chromosome
+    """
+    report_file = urllib.request.urlretrieve(report_url)[0]
+    if os.path.exists(report_file):
+        chromosomeN = 0
+        for entry in open(report_file, 'r').read().split('\n'):
+            if len(entry) > 0:  # EOF == len 0
+                if entry[0] != str('#') and str('hromosome') in entry:
+                    chromosomeN += 1
+                    ASMBL_ID = entry.split('\t')[0]
+    return chromosomeN, ASMBL_ID
+
+
+def get_genbank(fasta: str, CHROMOSOME: bool = False) -> str:
     """
         Given a fasta file with a reference sequence,
         extract access code and retrieve full genbank file.
     """
-    # Get access code from FASTA header
-    with gz.open(fasta, 'r') as FASTA_REF:
-        ACCESS_CODE = FASTA_REF.readline().decode().split(' ')[0][1:]
-    # Retrieve file 
+    if CHROMOSOME is False:
+        # Get access code from FASTA header
+        with gz.open(fasta, 'r') as FASTA_REF:
+            ACCESS_CODE = FASTA_REF.readline().decode().split(' ')[0][1:]
+    else:
+        # If CHROMOSOME == True, 'fasta' is the ACCESS_CODE
+        ACCESS_CODE = fasta
+    # Retrieve file
     file = Entrez.efetch(db='nucleotide', rettype='gbwithparts',
                          retmode='text', id=ACCESS_CODE,
                          email=USR_EMAIL)
@@ -72,7 +90,7 @@ def get_fasta(species: str) -> list:
      Use anonymised codes in 'sample_file' to populate NCBI
      and find the corresponding FASTQ filenames.
     """
-    if type(species) == list:
+    if type(species) is list:
         # Candidates already sorted by number of reads mapped:
         # Element 0 has the highest.
         success = False
@@ -90,6 +108,13 @@ def get_fasta(species: str) -> list:
                     remote_file = _get_assembly_url(info)
                     success = True
                     break
+                elif str('has-plasmid') in info['PropertyList']:
+                    report_url = info['FtpPath_Assembly_rpt']
+                    chromosomeN, ASMBL_ID = _get_chr_number(report_url)
+                    if chromosomeN == 1:
+                        success = True
+                        remote_file = report_url
+                        break
             if success is True:
                 print("Candidate found:", candidate)
                 break
@@ -112,9 +137,13 @@ def get_fasta(species: str) -> list:
             raise Exception("Candidate assembly has more than 1 contig.")
 
     # Download remote file
-    urllib.request.urlretrieve(remote_file, "reference.fna.gz")
-    if os.path.exists("reference.fna.gz"):
-        get_genbank("reference.fna.gz")
+    if contigN == 1:
+        urllib.request.urlretrieve(remote_file, "reference.fna.gz")
+        if os.path.exists("reference.fna.gz"):
+            get_genbank("reference.fna.gz")
+            return True, remote_file
+    elif chromosomeN == 1:
+        get_genbank(ASMBL_ID, CHROMOSOME=True)
         return True, remote_file
     else:
         return False, remote_file
@@ -122,7 +151,7 @@ def get_fasta(species: str) -> list:
 
 def parse_kraken2_report(REPORT: str) -> str:
     """
-        Parse kraken2 report to extract species with 
+        Parse kraken2 report to extract species with
         highest number of reads mapped onto them.
 
         NB. Report is ordered from group with highest number
@@ -156,7 +185,7 @@ def parse_kraken2_report(REPORT: str) -> str:
                 len(candidate_construct) == 0:
             candidate_construct.append(entry)
         elif entry[TYPE_ID] == str('S1') and species in entry[NAME_ID] and\
-            float(entry[PROP_ID]) > 0:
+                float(entry[PROP_ID]) > 0:
             candidate_construct.append(entry)
         elif entry[TYPE_ID] == str('S2') and species in entry[NAME_ID]:
             if float(entry[PROP_ID]) > 0.5 * float(prev_candidate[PROP_ID]):
