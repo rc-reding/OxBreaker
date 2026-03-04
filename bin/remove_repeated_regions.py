@@ -93,7 +93,7 @@ def Make_Repeat_Mask_Txt(outfastapath: str, prefix: str, word_size=17, window_si
     # BLAST cmd line argument
     blast_cmd = list(["blastn",
                       "-query", outfastapath,
-                      "-db", "reference_db",
+                      "-db", prefix,
                       "-evalue", str(e_thresh),
                       "-word_size", str(word_size),
                       "-window_size", str(window_size),
