@@ -108,7 +108,7 @@ def Make_Repeat_Mask_Txt(outfastapath: str, prefix: str, word_size=17, window_si
         blast_out, blast_err = subprocess.Popen(blast_cmd, stdout=subprocess.PIPE,
                                                 stderr=subprocess.PIPE).communicate()
     assert not blast_err.decode()
-	except (AppError, AssertionError) as err:
+	except (AssertionError) as err:
 		raise Exception(
 		    'Erro: Blast failed during construction of repeat mask : {0}'.format(err))
 	
