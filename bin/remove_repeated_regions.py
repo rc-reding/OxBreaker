@@ -82,13 +82,13 @@ def Export_Repeats(infastapath: str, regionspath: str):
 
 
 def Make_Repeat_Mask_Txt(outfastapath: str, prefix: str, word_size=17, window_size=40, gapopen=5, e_thresh=0.0001, perc_identity=90, gapextend=2,
-		                  min_length=75, threads=10 ):
-	"""
-	Run blastn on contigs in input fasta file against database dbname. Parameters set to NCBI recommended defaults for blastn.
-	"""
-	maskpath = prefix + '_repmask.array'
-	regionspath = prefix + '_repregions.array'
-	statspath = prefix + '.stats'
+                         min_length=75, threads=10 ):
+    """
+    Run blastn on contigs in input fasta file against database dbname. Parameters set to NCBI recommended defaults for blastn.
+    """
+    maskpath = prefix + '_repmask.array'
+    regionspath = prefix + '_repregions.array'
+    statspath = prefix + '.stats'
 
     # BLAST cmd line argument
     blast_cmd = list(["blastn",
@@ -107,90 +107,90 @@ def Make_Repeat_Mask_Txt(outfastapath: str, prefix: str, word_size=17, window_si
     try:
         blast_out, blast_err = subprocess.Popen(blast_cmd, stdout=subprocess.PIPE,
                                                 stderr=subprocess.PIPE).communicate()
-    assert not blast_err.decode()
-	except (AssertionError) as err:
-		raise Exception(
-		    'Erro: Blast failed during construction of repeat mask : {0}'.format(err))
-	
-	repmask_fp = open(maskpath, 'w')
-	repregions_fp = open(regionspath, 'w')
-	total_bp = 0
-	repetitive_bp = 0
-	num_regions = 0
-	
-	# each blast_rec is result from one query sequence (contig)
-	blast_stream = StringIO(blast_out.decode())
-	prev_header = None
-	for contig_count, contig in enumerate(SeqIO.parse(outfastapath, 'fasta'), 1):
-		if prev_header != contig.name:
-		    repregions_fp.write('>{0}\n'.format(contig.name))
-		    prev_header = contig.name
-		total_bp += len(contig)
-		repmask = np.zeros(len(contig), dtype=bool)
-		try:
-		    fields = next(blast_stream).split()
-		except StopIteration:
-		    fields = None
-		while fields and fields[0] == contig.name:
-		    contig_name, match_name = fields[:2]
-		    hit_perc_ident = float(fields[2])
-		    hit_length, q_start, q_end, s_start, s_end = (
-		        int(x) for x in fields[3:])
-		    (x1, y1), (x2, y2) = sorted( ((q_start, q_end), tuple(sorted((s_start, s_end)))) )
-		    if hit_length >= min_length and (contig_name != match_name or not (x2 <= x1 <= y2 and x2 <= y1 <= y2)):
-		        repmask[q_start - 1:q_end] = True
-		    try:
-		        fields = next(blast_stream).split()
-		    except StopIteration:  # end of blast hits
-		        fields = None
+        assert not blast_err.decode()
+    except (AssertionError) as err:
+        raise Exception(
+    	    'Erro: Blast failed during construction of repeat mask : {0}'.format(err))
 
-		# output.bam repmask as 1 and 0, 100 per line
-		repmask_fp.write('>{0}\n'.format(contig.name))
-		for i in range(0, len(repmask), 100):
-		    j = min(i + 100, len(repmask))
-		    repmask_fp.write('{0}\n'.format(''.join(str(i)
-		                                            for i in repmask[i:j].astype(int))))
-		# identify postitions of repetitive regions (runs of 1s in the
-		# repmask array)
-		# 0-based numbering
-		region_starts = list(np.where(repmask[1:] > repmask[:-1])[0] + 1)
-		region_ends = list(np.where(repmask[1:] < repmask[:-1])[0] + 1)
-		# special case: full blast hit for this contig against another
-		# contig
-		if repmask.all():
-		    region_starts = [0]
-		    region_ends = [len(repmask)]
-		# fix ends, in case regions start from the first position in the
-		# sequence or end at the last
-		if region_starts and ((not region_ends) or (region_starts[-1] > region_ends[-1])):
-		    region_ends.append(len(repmask))
-		if region_ends and ((not region_starts) or (region_starts[0] > region_ends[0])):
-		    region_starts = [0] + region_starts
+    repmask_fp = open(maskpath, 'w')
+    repregions_fp = open(regionspath, 'w')
+    total_bp = 0
+    repetitive_bp = 0
+    num_regions = 0
 
-		repregions_fp.writelines('{0}\t{1}\n'.format(
-		    rs, re) for rs, re in zip(region_starts, region_ends))
-		repetitive_bp += repmask.sum()
-		num_regions += len(region_starts)
-	
-	repmask_fp.close()
-	repregions_fp.close()
+    # each blast_rec is result from one query sequence (contig)
+    blast_stream = StringIO(blast_out.decode())
+    prev_header = None
+    for contig_count, contig in enumerate(SeqIO.parse(outfastapath, 'fasta'), 1):
+        if prev_header != contig.name:
+            repregions_fp.write('>{0}\n'.format(contig.name))
+            prev_header = contig.name
+        total_bp += len(contig)
+        repmask = np.zeros(len(contig), dtype=bool)
+        try:
+            fields = next(blast_stream).split()
+        except StopIteration:
+            fields = None
+        while fields and fields[0] == contig.name:
+            contig_name, match_name = fields[:2]
+            hit_perc_ident = float(fields[2])
+            hit_length, q_start, q_end, s_start, s_end = (
+                int(x) for x in fields[3:])
+            (x1, y1), (x2, y2) = sorted( ((q_start, q_end), tuple(sorted((s_start, s_end)))) )
+            if hit_length >= min_length and (contig_name != match_name or not (x2 <= x1 <= y2 and x2 <= y1 <= y2)):
+                repmask[q_start - 1:q_end] = True
+            try:
+                fields = next(blast_stream).split()
+            except StopIteration:  # end of blast hits
+                fields = None
 
-	#Carlos: Make BED file based on repregions_fp and reference
-	Generate_BED(regionspath, total_bp)
-	Export_Repeats(outfastapath, regionspath)
+        # output.bam repmask as 1 and 0, 100 per line
+        repmask_fp.write('>{0}\n'.format(contig.name))
+        for i in range(0, len(repmask), 100):
+            j = min(i + 100, len(repmask))
+            repmask_fp.write('{0}\n'.format(''.join(str(i)
+                                                    for i in repmask[i:j].astype(int))))
+        # identify postitions of repetitive regions (runs of 1s in the
+        # repmask array)
+        # 0-based numbering
+        region_starts = list(np.where(repmask[1:] > repmask[:-1])[0] + 1)
+        region_ends = list(np.where(repmask[1:] < repmask[:-1])[0] + 1)
+        # special case: full blast hit for this contig against another
+        # contig
+        if repmask.all():
+            region_starts = [0]
+            region_ends = [len(repmask)]
+        # fix ends, in case regions start from the first position in the
+        # sequence or end at the last
+        if region_starts and ((not region_ends) or (region_starts[-1] > region_ends[-1])):
+            region_ends.append(len(repmask))
+        if region_ends and ((not region_starts) or (region_starts[0] > region_ends[0])):
+            region_starts = [0] + region_starts
 
-	pct_repetitive = '{0:.2f}'.format( (float(repetitive_bp) / total_bp) * 100 )
-	statsvalues = '\t'.join((outfastapath, outfastapath, str(contig_count), str(total_bp),\
-	                         str(repetitive_bp), str(num_regions), pct_repetitive))
+        repregions_fp.writelines('{0}\t{1}\n'.format(
+            rs, re) for rs, re in zip(region_starts, region_ends))
+        repetitive_bp += repmask.sum()
+        num_regions += len(region_starts)
 
-	# save result summary
-	with open(statspath, 'w') as o:
-		o.write('refid\trefcd\tcontigs\tnumbp\trepetitivebp\trepregions\trepetitivepct\n{values}\n'.format(
-		    values=statsvalues))
-	print(
-		'Info: Repetitive regions for all of {0}: {1}/{2} bp ({3}%)'.format(outfastapath, repetitive_bp, total_bp,
-					                                                        pct_repetitive))
-	return
+    repmask_fp.close()
+    repregions_fp.close()
+
+    #Carlos: Make BED file based on repregions_fp and reference
+    Generate_BED(regionspath, total_bp)
+    Export_Repeats(outfastapath, regionspath)
+
+    pct_repetitive = '{0:.2f}'.format( (float(repetitive_bp) / total_bp) * 100 )
+    statsvalues = '\t'.join((outfastapath, outfastapath, str(contig_count), str(total_bp),\
+                             str(repetitive_bp), str(num_regions), pct_repetitive))
+
+    # save result summary
+    with open(statspath, 'w') as o:
+        o.write('refid\trefcd\tcontigs\tnumbp\trepetitivebp\trepregions\trepetitivepct\n{values}\n'.format(
+            values=statsvalues))
+    print(
+        'Info: Repetitive regions for all of {0}: {1}/{2} bp ({3}%)'.format(outfastapath, repetitive_bp, total_bp,
+                                                                            pct_repetitive))
+    return
 
 
 def main(FASTA: str):
