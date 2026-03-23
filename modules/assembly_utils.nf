@@ -225,7 +225,7 @@ process FIND_wgMLST {
 
 
 process BED_FROM_BLAST {
-	label "phylogeny_gubbins"
+	label "kraken2"
 	publishDir "$outdir", mode: 'copy'
 	
 	input:

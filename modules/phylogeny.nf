@@ -38,7 +38,7 @@ process GENERATE_CONSENSUS {
 			   ${barcode}.vcf.gz
 
 	# Change sample name in fasta file
-	sed -i "s/>/>\$FNAME /" "${barcode}.fa"
+	sed -i -e "s/>/>\$FNAME /" "${barcode}.fa"
 	"""
 
 	stub:
