@@ -12,7 +12,7 @@ include { phylogeny } from './subworkflows/analysis.nf'
 
 
 // MAIN WORKFLOW
-workflow outbreaker {
+workflow oxbreaker {
 	// Channels
 		reads = Channel.fromPath("$params.input/*.fastq.gz", checkIfExists: true).map {
 				it -> tuple( it.baseName.replace('.fastq',''), it )
