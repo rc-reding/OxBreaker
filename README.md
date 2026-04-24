@@ -1,3 +1,6 @@
+## DISCLAIMER
+Repository moved to GitLab: https://gitlab.com/rc-reding/OxBreaker
+
 # OxBreaker
 Nextflow implementation of the pipeline described in [OxBreaker: species-agnostic
 pipeline for the analysis of outbreaks using nanopore
